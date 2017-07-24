@@ -32,6 +32,12 @@ func main() {
 	}
 
 	for _, device := range devices {
-		fmt.Printf("%#v\n", device)
+		targets, err := dm.TableStatus(device.Dev)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("%#v %#v\n", device, targets)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"syscall"
 	"unsafe"
 )
@@ -65,6 +66,24 @@ var (
 type dmDevice struct {
 	Dev  uint64
 	Name string
+}
+
+// Used to specify tables. These structures appear after the dmIoctl at location specified by
+// DataStart. Defined in Linux header <uapi/linux/dm-ioctl.h>
+type dmTargetSpec struct {
+	SectorStart uint64
+	Length      uint64
+	Status      int32
+	Next        uint32
+	TargetType  [DM_MAX_TYPE_NAME]byte
+	// Parameter string starts immediately after this object.
+} // 40 bytes
+
+type dmTarget struct {
+	Start  uint64
+	Length uint64
+	Type   string
+	Params string
 }
 
 type dmVersion [3]uint32
@@ -175,6 +194,42 @@ func (dm *devMapper) ListDevices() ([]dmDevice, error) {
 	}
 
 	return devices, nil
+}
+
+func (dm *devMapper) TableStatus(dev uint64) ([]dmTarget, error) {
+	var tgt dmTargetSpec
+
+	// TODO: Move command version numbers to central location, like the C libdevmapper does
+	dmi := dmIoctl{Version: dmVersion{4, 0, 0}, Dev: dev}
+
+	buf, err := dm.ioctl(DM_TABLE_STATUS, &dmi)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reader spanning the dm ioctl reponse payload
+	r := bytes.NewReader(buf[dmi.DataStart : dmi.DataStart+dmi.DataSize])
+	targets := make([]dmTarget, dmi.TargetCount)
+
+	// Iterate over targets, reading into dmTargetSpec struct
+	for x := 0; x < int(dmi.TargetCount); x++ {
+		binary.Read(r, nativeEndian, &tgt)
+
+		// Get reader position
+		pos, _ := r.Seek(0, io.SeekCurrent)
+
+		params := make([]byte, int64(tgt.Next)-pos)
+		r.Read(params)
+
+		targets[x] = dmTarget{
+			Start:  tgt.SectorStart,
+			Length: tgt.Length,
+			Type:   string(bytes.TrimRight(tgt.TargetType[:], "\x00")),
+			Params: string(bytes.TrimRight(params, "\x00")),
+		}
+	}
+
+	return targets, nil
 }
 
 // Version returns a string containing the x.y.z version number of the kernel devmapper
