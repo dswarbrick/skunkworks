@@ -62,6 +62,11 @@ var (
 	nativeEndian binary.ByteOrder
 )
 
+type dmDevice struct {
+	Dev  uint64
+	Name string
+}
+
 type dmVersion [3]uint32
 
 func (v dmVersion) String() string {
@@ -124,6 +129,52 @@ func (dm *devMapper) ioctl(cmd uintptr, dmi *dmIoctl) ([]byte, error) {
 
 	// If we made it this far without success, the buffer was too small
 	return nil, fmt.Errorf("ioctl buffer full")
+}
+
+// ListDevices returns a list of devmapper devices
+func (dm *devMapper) ListDevices() ([]dmDevice, error) {
+	var (
+		dmName struct {
+			Dev  uint64
+			Next uint32
+		}
+		devices []dmDevice
+	)
+
+	// TODO: Move command version numbers to central location, like the C libdevmapper does
+	dmi := dmIoctl{Version: dmVersion{4, 0, 0}}
+
+	buf, err := dm.ioctl(DM_LIST_DEVICES, &dmi)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reader spanning the dm ioctl reponse payload
+	r := bytes.NewReader(buf[dmi.DataStart : dmi.DataStart+dmi.DataSize])
+
+	for {
+		var name []byte
+
+		binary.Read(r, nativeEndian, &dmName)
+
+		if dmName.Next != 0 {
+			// Make byte array large enough to hold the bytes up until next struct head
+			name = make([]byte, int(dmName.Next)-binary.Size(dmName))
+		} else {
+			// Last device in list - consume all remaining bytes
+			name = make([]byte, r.Len())
+		}
+
+		r.Read(name)
+
+		devices = append(devices, dmDevice{Dev: dmName.Dev, Name: string(bytes.TrimRight(name, "\x00"))})
+
+		if dmName.Next == 0 {
+			break
+		}
+	}
+
+	return devices, nil
 }
 
 // Version returns a string containing the x.y.z version number of the kernel devmapper

@@ -24,4 +24,14 @@ func main() {
 	defer dm.Close()
 
 	fmt.Printf("Kernel devmapper version: %s\n", dm.Version())
+
+	devices, err := dm.ListDevices()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	for _, device := range devices {
+		fmt.Printf("%#v\n", device)
+	}
 }
