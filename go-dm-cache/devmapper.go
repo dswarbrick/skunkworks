@@ -30,7 +30,8 @@ const (
 
 // Declared in Linux header <uapi/linux/dm-ioctl.h>
 const (
-	DM_BUFFER_FULL_FLAG = 1 << 8
+	DM_STATUS_TABLE_FLAG = 1 << 4 // ioctl flag for STATUS command to get table information
+	DM_BUFFER_FULL_FLAG  = 1 << 8
 )
 
 // Declared in Linux header <uapi/linux/dm-ioctl.h>
@@ -203,6 +204,7 @@ func (dm *devMapper) TableStatus(dev uint64) ([]dmTarget, error) {
 
 	// TODO: Move command version numbers to central location, like the C libdevmapper does
 	dmi := dmIoctl{Version: dmVersion{4, 0, 0}, Dev: dev}
+	dmi.Flags |= DM_STATUS_TABLE_FLAG
 
 	buf, err := dm.ioctl(DM_TABLE_STATUS, &dmi)
 	if err != nil {
