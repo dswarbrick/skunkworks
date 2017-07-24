@@ -6,6 +6,8 @@
  * See dm-cache documentation at: https://www.kernel.org/doc/Documentation/device-mapper/cache.txt
  */
 
+// +build linux
+
 package main
 
 import "testing"

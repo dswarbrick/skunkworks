@@ -7,6 +7,8 @@
  * actual libdevmapper to build.
  */
 
+// +build linux
+
 package main
 
 import (
@@ -29,6 +31,11 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+
+	if len(devices) == 0 {
+		fmt.Println("No devmapper devices found.")
+		os.Exit(0)
 	}
 
 	for _, device := range devices {

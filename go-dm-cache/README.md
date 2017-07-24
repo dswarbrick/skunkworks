@@ -1,6 +1,13 @@
 dm-cache Notes
 ==============
 
+Trying It Out
+-------------
+Simply run the following from this directory:
+```
+$ sudo go run !(*_test).go
+```
+
 Caveats when Using lvmcache
 ---------------------------
 - Volume(s) to be cached must reside in the same VG as the cachepool. For

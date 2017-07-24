@@ -7,6 +7,8 @@
  * actual libdevmapper to build.
  */
 
+// +build linux
+
 package main
 
 import (
