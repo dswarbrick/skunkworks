@@ -39,9 +39,9 @@ func main() {
 		0xc8, // Checksum
 		0x81, // Source address
 		0x00, // Source LUN, sequence number
-		CommandGetAuthCapabilities,
+		CmdGetChannelAuthCapabilities,
 		0x8e, // IPMI v2.0+ extended data, current channel
-		0x04, // Privilege level (administrator)
+		PrivLevelAdmin,
 		0xb5, // Checksum
 	}
 
