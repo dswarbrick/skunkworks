@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	rmcpVersion1 = 0x06
+	rmcpVersion1  = 0x06
 	rmcpClassIPMI = 0x07
 )
 
