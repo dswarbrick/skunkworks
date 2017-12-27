@@ -1,5 +1,9 @@
 package main
 
+// IPMI implementation for Go
+//
+// Based on https://www-ssl.intel.com/content/www/us/en/servers/ipmi/ipmi-intelligent-platform-mgt-interface-spec-2nd-gen-v2-0-spec-update.html
+
 import (
 	"context"
 	"fmt"
@@ -35,7 +39,7 @@ func main() {
 		0xc8, // Checksum
 		0x81, // Source address
 		0x00, // Source LUN, sequence number
-		0x38, // Get channel auth capabilities
+		CommandGetAuthCapabilities,
 		0x8e, // IPMI v2.0+ extended data, current channel
 		0x04, // Privilege level (administrator)
 		0xb5, // Checksum
