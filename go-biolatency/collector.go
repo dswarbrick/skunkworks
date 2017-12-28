@@ -1,15 +1,19 @@
 package main
 
 import (
+	"github.com/iovisor/gobpf/bcc"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type exporter struct {
+	bpfMod  *bcc.Module
 	latency *prometheus.Desc
 }
 
-func newExporter() *exporter {
-	return &exporter{
+func newExporter(m *bcc.Module) *exporter {
+	e := exporter{
+		bpfMod: m,
 		latency: prometheus.NewDesc(
 			"bio_request_latency_usec",
 			"A histogram of bio request latencies in microseconds.",
@@ -17,6 +21,8 @@ func newExporter() *exporter {
 			nil,
 		),
 	}
+
+	return &e
 }
 
 func (e *exporter) Collect(ch chan<- prometheus.Metric) {

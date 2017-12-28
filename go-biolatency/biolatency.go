@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	bpf "github.com/iovisor/gobpf/bcc"
+	"github.com/iovisor/gobpf/bcc"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,51 +22,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 )
-
-const source string = `
-#include <uapi/linux/ptrace.h>
-#include <linux/blkdev.h>
-
-typedef struct disk_key {
-	char disk[DISK_NAME_LEN];
-	u64 slot;
-} disk_key_t;
-
-BPF_HASH(start, struct request *);
-BPF_HISTOGRAM(dist, disk_key_t);
-
-// Record start time of a request
-int trace_req_start(struct pt_regs *ctx, struct request *req)
-{
-	u64 ts = bpf_ktime_get_ns();
-	start.update(&req, &ts);
-	return 0;
-}
-
-// Calculate request duration and store in appropriate histogram bucket
-int trace_req_completion(struct pt_regs *ctx, struct request *req)
-{
-	u64 *tsp, delta;
-
-	// Fetch timestamp and calculate delta
-	tsp = start.lookup(&req);
-	if (tsp == 0) {
-		return 0;   // missed issue
-	}
-	delta = bpf_ktime_get_ns() - *tsp;
-
-	// Convert to microseconds
-	delta /= 1000;
-
-	// Store as histogram
-	disk_key_t key = {.slot = bpf_log2l(delta)};
-	bpf_probe_read(&key.disk, sizeof(key.disk), req->rq_disk->disk_name);
-	dist.increment(key);
-
-	start.delete(&req);
-	return 0;
-}
-`
 
 var (
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9123").String()
@@ -138,19 +93,11 @@ func main() {
 </html>`))
 	})
 
-	prometheus.MustRegister(newExporter())
-
-	http.Handle("/metrics", promhttp.Handler())
-
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
-		os.Exit(1)
-	}
-
-	m := bpf.NewModule(source, []string{})
+	// Compile BPF code and return new module
+	m := bcc.NewModule(bpfSource, []string{})
 	defer m.Close()
 
+	// Load and attach kprobes
 	startKprobe, err := m.LoadKprobe("trace_req_start")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load trace_req_start: %s\n", err)
@@ -175,7 +122,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	table := bpf.NewTable(m.TableId("dist"), m)
+	prometheus.MustRegister(newExporter(m))
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+		os.Exit(1)
+	}
+
+	table := bcc.NewTable(m.TableId("dist"), m)
 
 	ticker := time.NewTicker(time.Second * 3)
 	defer ticker.Stop()
