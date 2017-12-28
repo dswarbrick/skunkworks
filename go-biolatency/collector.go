@@ -1,6 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+
 	"github.com/iovisor/gobpf/bcc"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -8,12 +13,14 @@ import (
 
 type exporter struct {
 	bpfMod  *bcc.Module
+	bpfHist *bcc.Table
 	latency *prometheus.Desc
 }
 
 func newExporter(m *bcc.Module) *exporter {
 	e := exporter{
-		bpfMod: m,
+		bpfMod:  m,
+		bpfHist: bcc.NewTable(m.TableId("dist"), m),
 		latency: prometheus.NewDesc(
 			"bio_request_latency_usec",
 			"A histogram of bio request latencies in microseconds.",
@@ -26,11 +33,42 @@ func newExporter(m *bcc.Module) *exporter {
 }
 
 func (e *exporter) Collect(ch chan<- prometheus.Metric) {
+	// TODO: Implement asynchronous clearing of BPF tables to prevent data becoming stale if not
+	// regularly polled.
+	// TODO: Replace fmt.Println with logger functions.
+
+	hist := make([]uint64, 64)
+
+	// TODO: We're currently ignoring label (i.e., block dev name)
+	for entry := range e.bpfHist.Iter() {
+		_, bucket := parseKey(entry.Key)
+
+		if value, err := strconv.ParseUint(entry.Value, 0, 64); err == nil {
+			hist[bucket] = value
+		}
+	}
+
+	// Clear table - depends on https://github.com/iovisor/gobpf/pull/91 because
+	// table.Delete() does not seem to handle strings in the key.
+	if err := e.bpfHist.DeleteAll(); err != nil {
+		fmt.Println(err)
+	}
+
 	buckets := make(map[float64]uint64)
+	var sampleCount uint64
+	var sampleSum float64
+
+	for i, v := range hist {
+		if v > 0 {
+			buckets[math.Exp2(float64(i))] = v
+			sampleCount += v
+			sampleSum += float64(v) * float64(i) // FIXME: This is not correct
+		}
+	}
 
 	ch <- prometheus.MustNewConstHistogram(e.latency,
-		1234,
-		5678,
+		sampleCount,
+		sampleSum,
 		buckets,
 		"sda1", "read", // Dummy values, to be filled in later
 	)
@@ -38,4 +76,12 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 
 func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.latency
+}
+
+// parseKey parses a BPF hash key as created by the BPF program
+func parseKey(s string) (string, uint64) {
+	fields := strings.Fields(strings.Trim(s, "{ }"))
+	label := strings.Trim(fields[0], "\"")
+	bucket, _ := strconv.ParseUint(fields[1], 0, 64)
+	return label, bucket
 }
