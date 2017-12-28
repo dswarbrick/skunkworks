@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -10,8 +11,14 @@ import (
 
 	bpf "github.com/iovisor/gobpf/bcc"
 
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/version"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -39,27 +46,31 @@ int trace_req_start(struct pt_regs *ctx, struct request *req)
 // Calculate request duration and store in appropriate histogram bucket
 int trace_req_completion(struct pt_regs *ctx, struct request *req)
 {
-    u64 *tsp, delta;
+	u64 *tsp, delta;
 
-    // Fetch timestamp and calculate delta
-    tsp = start.lookup(&req);
-    if (tsp == 0) {
-        return 0;   // missed issue
-    }
-    delta = bpf_ktime_get_ns() - *tsp;
+	// Fetch timestamp and calculate delta
+	tsp = start.lookup(&req);
+	if (tsp == 0) {
+		return 0;   // missed issue
+	}
+	delta = bpf_ktime_get_ns() - *tsp;
 
-    // Convert to microseconds
-    delta /= 1000;
+	// Convert to microseconds
+	delta /= 1000;
 
-    // Store as histogram
-    disk_key_t key = {.slot = bpf_log2l(delta)};
-    bpf_probe_read(&key.disk, sizeof(key.disk), req->rq_disk->disk_name);
-    dist.increment(key);
+	// Store as histogram
+	disk_key_t key = {.slot = bpf_log2l(delta)};
+	bpf_probe_read(&key.disk, sizeof(key.disk), req->rq_disk->disk_name);
+	dist.increment(key);
 
-    start.delete(&req);
-    return 0;
+	start.delete(&req);
+	return 0;
 }
 `
+
+var (
+	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9123").String()
+)
 
 // parseKey parses a BPF hash key as created by the BPF program
 func parseKey(s string) (string, uint64) {
@@ -102,6 +113,41 @@ func log2Histogram(hist []uint64, width int) {
 }
 
 func main() {
+	allowedLevel := promlog.AllowedLevel{}
+	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
+	kingpin.Version(version.Print("blat_exporter"))
+	kingpin.HelpFlag.Short('h')
+	kingpin.Parse()
+
+	logger := promlog.New(allowedLevel)
+
+	level.Info(logger).Log("msg", "Starting blat_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Build context", version.BuildContext())
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html>
+	<head>
+	<title>Blat Exporter</title>
+	<style>html { font-family: sans-serif; }</style>
+	</head>
+	<body>
+	<h1>Blat Exporter</h1>
+	<p><a href="/metrics">Metrics</a></p>
+	</body>
+</html>`))
+	})
+
+	prometheus.MustRegister(newExporter())
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+		os.Exit(1)
+	}
+
 	m := bpf.NewModule(source, []string{})
 	defer m.Close()
 
