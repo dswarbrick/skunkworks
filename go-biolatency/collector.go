@@ -37,14 +37,16 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	// regularly polled.
 	// TODO: Replace fmt.Println with logger functions.
 
-	hist := make([]uint64, 64)
+	buckets := make(map[float64]uint64)
 
 	// TODO: We're currently ignoring label (i.e., block dev name)
 	for entry := range e.bpfHist.Iter() {
 		_, bucket := parseKey(entry.Key)
 
 		if value, err := strconv.ParseUint(entry.Value, 0, 64); err == nil {
-			hist[bucket] = value
+			if value > 0 {
+				buckets[math.Exp2(float64(bucket))] = value
+			}
 		}
 	}
 
@@ -54,16 +56,12 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 		fmt.Println(err)
 	}
 
-	buckets := make(map[float64]uint64)
 	var sampleCount uint64
 	var sampleSum float64
 
-	for i, v := range hist {
-		if v > 0 {
-			buckets[math.Exp2(float64(i))] = v
-			sampleCount += v
-			sampleSum += float64(v) * float64(i) // FIXME: This is not correct
-		}
+	for k, v := range buckets {
+		sampleSum += float64(k) * float64(v)
+		sampleCount += v
 	}
 
 	ch <- prometheus.MustNewConstHistogram(e.latency,
