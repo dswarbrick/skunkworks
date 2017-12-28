@@ -37,11 +37,17 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 	// regularly polled.
 	// TODO: Replace fmt.Println with logger functions.
 
-	buckets := make(map[float64]uint64)
+	devBuckets := make(map[string]map[float64]uint64)
 
-	// TODO: We're currently ignoring label (i.e., block dev name)
 	for entry := range e.bpfHist.Iter() {
-		_, bucket := parseKey(entry.Key)
+		devName, bucket := parseKey(entry.Key)
+
+		buckets, ok := devBuckets[devName]
+		if !ok {
+			// First time seeing this device, initialize new latency map
+			buckets = make(map[float64]uint64)
+			devBuckets[devName] = buckets
+		}
 
 		if value, err := strconv.ParseUint(entry.Value, 0, 64); err == nil {
 			if value > 0 {
@@ -56,20 +62,22 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 		fmt.Println(err)
 	}
 
-	var sampleCount uint64
-	var sampleSum float64
+	for devName, buckets := range devBuckets {
+		var sampleCount uint64
+		var sampleSum float64
 
-	for k, v := range buckets {
-		sampleSum += float64(k) * float64(v)
-		sampleCount += v
+		for k, v := range buckets {
+			sampleSum += float64(k) * float64(v)
+			sampleCount += v
+		}
+
+		ch <- prometheus.MustNewConstHistogram(e.latency,
+			sampleCount,
+			sampleSum,
+			buckets,
+			devName, "read", // Dummy value, to be filled in later
+		)
 	}
-
-	ch <- prometheus.MustNewConstHistogram(e.latency,
-		sampleCount,
-		sampleSum,
-		buckets,
-		"sda1", "read", // Dummy values, to be filled in later
-	)
 }
 
 func (e *exporter) Describe(ch chan<- *prometheus.Desc) {
