@@ -22,7 +22,7 @@ func newExporter(m *bcc.Module) *exporter {
 		bpfMod:  m,
 		bpfHist: bcc.NewTable(m.TableId("dist"), m),
 		latency: prometheus.NewDesc(
-			"bio_request_latency_usec",
+			prometheus.BuildFQName(namespace, "request", "latency_usec"),
 			"A histogram of bio request latencies in microseconds.",
 			[]string{"device", "operation"},
 			nil,

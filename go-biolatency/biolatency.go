@@ -17,6 +17,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+const namespace = "bio"
+
 var (
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9123").String()
 )
