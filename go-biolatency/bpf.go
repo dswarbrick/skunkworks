@@ -1,3 +1,5 @@
+// Bio Exporter - A Prometheus exporter for Linux block IO statistics.
+
 package main
 
 const bpfSource string = `

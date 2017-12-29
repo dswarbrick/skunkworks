@@ -1,10 +1,15 @@
+// +build linux
+
+// Bio Exporter - A Prometheus exporter for Linux block IO statistics.
+//
+// Copyright 2017 Daniel Swarbrick
+//
 package main
 
 import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/iovisor/gobpf/bcc"
 
@@ -23,49 +28,16 @@ var (
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9123").String()
 )
 
-// log2Histogram prints a simple ASCII-based histogram to stdout
-// DEPRECATED
-func log2Histogram(hist []uint64, width int) {
-	var (
-		idxMax uint
-		valMax uint64
-	)
-
-	for i, v := range hist {
-		if v > 0 {
-			idxMax = uint(i)
-		}
-
-		if v > valMax {
-			valMax = v
-		}
-	}
-
-	for i := uint(1); i <= idxMax; i++ {
-		low := 1 << (i - 1)
-		high := (1 << i) - 1
-
-		if low == high {
-			low -= 1
-		}
-
-		// Fill string with asterisks according to current value's proportion of max
-		stars := strings.Repeat("*", int(float64(hist[i])/float64(valMax)*float64(width)))
-
-		fmt.Printf("%20d -> %-20d : %-8d |%-*s|\n", low, high, hist[i], width, stars)
-	}
-}
-
 func main() {
 	allowedLevel := promlog.AllowedLevel{}
 	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
-	kingpin.Version(version.Print("blat_exporter"))
+	kingpin.Version(version.Print("bio_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 
 	logger := promlog.New(allowedLevel)
 
-	level.Info(logger).Log("msg", "Starting blat_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Starting bio_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
 
 	// Compile BPF code and return new module
@@ -103,11 +75,11 @@ func main() {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<html>
 	<head>
-	<title>Blat Exporter</title>
+	<title>Bio Exporter</title>
 	<style>html { font-family: sans-serif; }</style>
 	</head>
 	<body>
-	<h1>Blat Exporter</h1>
+	<h1>Bio Exporter</h1>
 	<p><a href="/metrics">Metrics</a></p>
 	</body>
 </html>`))

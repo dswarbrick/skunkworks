@@ -1,3 +1,9 @@
+// +build linux
+
+// Bio Exporter - A Prometheus exporter for Linux block IO statistics.
+//
+// Copyright 2017 Daniel Swarbrick
+
 package main
 
 import (
