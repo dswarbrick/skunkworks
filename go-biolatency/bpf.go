@@ -3,6 +3,7 @@ package main
 const bpfSource string = `
 #include <uapi/linux/ptrace.h>
 #include <linux/blkdev.h>
+#include <linux/blk_types.h>
 
 typedef struct disk_key {
 	char disk[DISK_NAME_LEN];
@@ -10,7 +11,8 @@ typedef struct disk_key {
 } disk_key_t;
 
 BPF_HASH(start, struct request *);
-BPF_HISTOGRAM(dist, disk_key_t);
+BPF_HISTOGRAM(read_lat, disk_key_t);
+BPF_HISTOGRAM(write_lat, disk_key_t);
 
 // Record start time of a request
 int trace_req_start(struct pt_regs *ctx, struct request *req)
@@ -38,7 +40,12 @@ int trace_req_completion(struct pt_regs *ctx, struct request *req)
 	// Store as histogram
 	disk_key_t key = {.slot = bpf_log2l(delta)};
 	bpf_probe_read(&key.disk, sizeof(key.disk), req->rq_disk->disk_name);
-	dist.increment(key);
+
+	if ((req->cmd_flags & REQ_OP_MASK) == REQ_OP_WRITE) {
+		write_lat.increment(key);
+	} else {
+		read_lat.increment(key);
+	}
 
 	start.delete(&req);
 	return 0;
