@@ -7,7 +7,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -46,10 +45,6 @@ func newExporter(m *bcc.Module) *exporter {
 }
 
 func (e *exporter) Collect(ch chan<- prometheus.Metric) {
-	// TODO: Implement asynchronous clearing of BPF tables to prevent data becoming stale if not
-	// regularly polled.
-	// TODO: Replace fmt.Println with logger functions.
-
 	devStats := make(map[string]bioStats)
 
 	for entry := range e.readLat.Iter() {
@@ -85,15 +80,6 @@ func (e *exporter) Collect(ch chan<- prometheus.Metric) {
 				stats.writeLat[math.Exp2(float64(bucket))] = value
 			}
 		}
-	}
-
-	// Clear table - depends on https://github.com/iovisor/gobpf/pull/91 because
-	// table.Delete() does not seem to handle strings in the key.
-	if err := e.readLat.DeleteAll(); err != nil {
-		fmt.Println(err)
-	}
-	if err := e.writeLat.DeleteAll(); err != nil {
-		fmt.Println(err)
 	}
 
 	// Walk devStats map and emit metrics to channel
