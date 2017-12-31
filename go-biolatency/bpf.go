@@ -13,8 +13,8 @@ typedef struct disk_key {
 } disk_key_t;
 
 BPF_HASH(start, struct request *);
-BPF_HISTOGRAM(read_lat, disk_key_t);
-BPF_HISTOGRAM(write_lat, disk_key_t);
+BPF_HISTOGRAM(read_lat, disk_key_t, 32);
+BPF_HISTOGRAM(write_lat, disk_key_t, 32);
 
 // Record start time of a request
 int trace_req_start(struct pt_regs *ctx, struct request *req)
