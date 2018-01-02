@@ -6,17 +6,29 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
+	"os"
 	"time"
 )
 
 func main() {
+	var host = flag.String("host", "", "Target host and port")
+
+	flag.Parse()
+
+	if *host == "" {
+		fmt.Println("Insufficient arguments:")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 
 	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "udp4", "127.0.0.1:9001")
+	conn, err := dialer.DialContext(ctx, "udp4", *host)
 	if err != nil {
 		panic(err)
 	}
