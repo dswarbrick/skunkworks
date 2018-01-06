@@ -54,7 +54,7 @@ func main() {
 
 	fmt.Println("Connection established")
 
-	foo := new(bytes.Buffer)
+	buf := new(bytes.Buffer)
 
 	// Write RMCP header
 	rmcpHeader := rmcpHeader{
@@ -65,8 +65,8 @@ func main() {
 
 	ipmiSession := ipmiSession{}
 
-	binaryWrite(foo, rmcpHeader)
-	binaryWrite(foo, ipmiSession)
+	binaryWrite(buf, rmcpHeader)
+	binaryWrite(buf, ipmiSession)
 
 	// Construct and write IPMI header
 	ipmiHeader := ipmiHeader{
@@ -79,21 +79,25 @@ func main() {
 
 	// Header checksum
 	ipmiHeader.Checksum = checksum(ipmiHeader.RsAddr, ipmiHeader.NetFnRsLUN)
-	binaryWrite(foo, ipmiHeader)
+	binaryWrite(buf, ipmiHeader)
 
-	buf := foo.Bytes()
-	buf = append(buf, []byte{
+	req := AuthCapabilitiesRequest{
 		0x8e, // IPMI v2.0+ extended data, current channel
 		PrivLevelAdmin,
-		0xb5, // Checksum
-	}...)
+	}
+
+	binaryWrite(buf, req)
+
+	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command, req.ChannelNumber, req.PrivLevel)
+	fmt.Printf("calc csum: %x\n", calcCsum)
+	buf.WriteByte(calcCsum)
 
 	deadline, _ := ctx.Deadline()
 	if err := conn.SetDeadline(deadline); err != nil {
 		panic(err)
 	}
 
-	n, err := conn.Write(buf)
+	n, err := conn.Write(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}

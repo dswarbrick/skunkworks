@@ -14,3 +14,9 @@ const (
 	PrivLevelAdmin
 	PrivLevelOEM
 )
+
+// AuthCapabilitiesRequest per section 22.13
+type AuthCapabilitiesRequest struct {
+	ChannelNumber uint8
+	PrivLevel     uint8
+}

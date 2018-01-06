@@ -26,6 +26,17 @@ type ipmiHeader struct {
 	Command    uint8
 }
 
+// AuthCapabilitiesResponse per section 22.13
+type AuthCapabilitiesResponse struct {
+	CompletionCode  uint8
+	ChannelNumber   uint8
+	AuthTypeSupport uint8
+	Status          uint8
+	Reserved        uint8
+	OEMID           uint16
+	OEMAux          uint8
+}
+
 func newMessageFromBytes(b []byte) error {
 	if len(b) < rmcpHeaderSize+ipmiSessionSize+ipmiHeaderSize {
 		return fmt.Errorf("Undersized packet")
@@ -69,8 +80,14 @@ func newMessageFromBytes(b []byte) error {
 	fmt.Printf("csum: %x\n", csum)
 
 	// Calculate payload checksum
-	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, uint8(ipmiHeader.Command)) + checksum(data...)
+	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(data...)
 	fmt.Printf("calc csum: %x\n", calcCsum)
+
+	res := AuthCapabilitiesResponse{}
+	r = bytes.NewReader(data)
+	binary.Read(r, binary.LittleEndian, &res)
+
+	fmt.Printf("%#v\n", res)
 
 	return nil
 }
