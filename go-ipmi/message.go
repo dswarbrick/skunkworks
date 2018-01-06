@@ -6,6 +6,26 @@ import (
 	"fmt"
 )
 
+const (
+	NetworkFunctionApp = 0x06
+)
+
+type ipmiSession struct {
+	AuthType  uint8
+	Sequence  uint32
+	SessionID uint32
+}
+
+type ipmiHeader struct {
+	MsgLen     uint8
+	RsAddr     uint8
+	NetFnRsLUN uint8
+	Checksum   uint8
+	RqAddr     uint8
+	RqSeq      uint8
+	Command    uint8
+}
+
 func newMessageFromBytes(b []byte) error {
 	if len(b) < rmcpHeaderSize+ipmiSessionSize+ipmiHeaderSize {
 		return fmt.Errorf("Undersized packet")
@@ -47,6 +67,10 @@ func newMessageFromBytes(b []byte) error {
 	// Checksum byte should be the last byte, immediately after the data
 	csum, _ := r.ReadByte()
 	fmt.Printf("csum: %x\n", csum)
+
+	// Calculate payload checksum
+	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, uint8(ipmiHeader.Command)) + checksum(data...)
+	fmt.Printf("calc csum: %x\n", calcCsum)
 
 	return nil
 }

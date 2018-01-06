@@ -30,18 +30,3 @@ func decodeRMCPHeader(buf []byte) *rmcpHeader {
 
 	return &rmcpHeader{buf[0], buf[1], buf[2], buf[3]}
 }
-
-type ipmiSession struct {
-	AuthType  uint8
-	Sequence  uint32
-	SessionID uint32
-}
-
-type ipmiHeader struct {
-	MsgLen     uint8
-	RsAddr     uint8
-	NetFnRsLUN uint8
-	Checksum   uint8
-	RqAddr     uint8
-	RqSeq      uint8
-}

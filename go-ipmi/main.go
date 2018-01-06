@@ -74,6 +74,7 @@ func main() {
 		RsAddr:     0x20, // Target address
 		NetFnRsLUN: 0x18, // NetFn, target LUN
 		RqAddr:     0x81, // Source address
+		Command:    CmdGetChannelAuthCapabilities,
 	}
 
 	// Header checksum
@@ -82,7 +83,6 @@ func main() {
 
 	buf := foo.Bytes()
 	buf = append(buf, []byte{
-		CmdGetChannelAuthCapabilities,
 		0x8e, // IPMI v2.0+ extended data, current channel
 		PrivLevelAdmin,
 		0xb5, // Checksum
