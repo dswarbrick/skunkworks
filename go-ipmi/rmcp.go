@@ -10,7 +10,9 @@ const (
 )
 
 var (
-	rmcpHeaderSize = binary.Size(rmcpHeader{})
+	rmcpHeaderSize  = binary.Size(rmcpHeader{})
+	ipmiSessionSize = binary.Size(ipmiSession{})
+	ipmiHeaderSize  = binary.Size(ipmiHeader{})
 )
 
 type rmcpHeader struct {
@@ -20,6 +22,7 @@ type rmcpHeader struct {
 	Class              uint8
 }
 
+// TODO: Deprecate this function
 func decodeRMCPHeader(buf []byte) *rmcpHeader {
 	if len(buf) < rmcpHeaderSize {
 		panic(nil)

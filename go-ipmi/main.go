@@ -57,19 +57,19 @@ func main() {
 	foo := new(bytes.Buffer)
 
 	// Write RMCP header
-	rmcphdr := rmcpHeader{
+	rmcpHeader := rmcpHeader{
 		Version:            rmcpVersion1,
 		RMCPSequenceNumber: 0xff,
 		Class:              rmcpClassIPMI,
 	}
 
-	ipmisesshdr := ipmiSession{}
+	ipmiSession := ipmiSession{}
 
-	binaryWrite(foo, rmcphdr)
-	binaryWrite(foo, ipmisesshdr)
+	binaryWrite(foo, rmcpHeader)
+	binaryWrite(foo, ipmiSession)
 
 	// Construct and write IPMI header
-	ipmihdr := ipmiHeader{
+	ipmiHeader := ipmiHeader{
 		MsgLen:     0x09, // Message len
 		RsAddr:     0x20, // Target address
 		NetFnRsLUN: 0x18, // NetFn, target LUN
@@ -77,8 +77,8 @@ func main() {
 	}
 
 	// Header checksum
-	ipmihdr.Checksum = checksum(ipmihdr.RsAddr, ipmihdr.NetFnRsLUN)
-	binaryWrite(foo, ipmihdr)
+	ipmiHeader.Checksum = checksum(ipmiHeader.RsAddr, ipmiHeader.NetFnRsLUN)
+	binaryWrite(foo, ipmiHeader)
 
 	buf := foo.Bytes()
 	buf = append(buf, []byte{
@@ -108,10 +108,12 @@ func main() {
 
 	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
 
-	hdr := decodeRMCPHeader(buf)
+	hdr := decodeRMCPHeader(inbuf[:n])
 	fmt.Printf("%#v\n", hdr)
 
 	if hdr.Class != rmcpClassIPMI {
 		fmt.Printf("Unsupported class: %#x\n", hdr.Class)
 	}
+
+	newMessageFromBytes(inbuf[:n])
 }
