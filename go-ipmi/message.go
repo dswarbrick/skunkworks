@@ -26,17 +26,6 @@ type ipmiHeader struct {
 	Command    uint8
 }
 
-// AuthCapabilitiesResponse per section 22.13
-type AuthCapabilitiesResponse struct {
-	CompletionCode  uint8
-	ChannelNumber   uint8
-	AuthTypeSupport uint8
-	Status          uint8
-	Reserved        uint8
-	OEMID           uint16
-	OEMAux          uint8
-}
-
 func newMessageFromBytes(b []byte) error {
 	if len(b) < rmcpHeaderSize+ipmiSessionSize+ipmiHeaderSize {
 		return fmt.Errorf("Undersized packet")
@@ -88,6 +77,14 @@ func newMessageFromBytes(b []byte) error {
 	binary.Read(r, binary.LittleEndian, &res)
 
 	fmt.Printf("%#v\n", res)
+
+	// Check for supported auth type in order of preference
+	for _, t := range []uint8{AuthTypeMD5, AuthTypePassword, AuthTypeNone} {
+		if (res.AuthTypeSupport & (1 << t)) != 0 {
+			fmt.Println(t)
+			break
+		}
+	}
 
 	return nil
 }

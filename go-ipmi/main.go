@@ -6,14 +6,11 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
-	"time"
 )
 
 func checksum(b ...uint8) uint8 {
@@ -41,18 +38,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "udp4", *host)
+	lc, err := newLanConnection(*host)
 	if err != nil {
 		panic(err)
 	}
+	defer lc.close()
 
-	defer conn.Close()
-
-	fmt.Println("Connection established")
+	fmt.Printf("Connection established: %#v\n", lc)
 
 	buf := new(bytes.Buffer)
 
@@ -92,12 +84,7 @@ func main() {
 	fmt.Printf("calc csum: %x\n", calcCsum)
 	buf.WriteByte(calcCsum)
 
-	deadline, _ := ctx.Deadline()
-	if err := conn.SetDeadline(deadline); err != nil {
-		panic(err)
-	}
-
-	n, err := conn.Write(buf.Bytes())
+	n, err := lc.conn.Write(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -105,7 +92,7 @@ func main() {
 	fmt.Printf("%d bytes written\n", n)
 
 	inbuf := make([]byte, 512)
-	n, err = conn.Read(inbuf)
+	n, err = lc.conn.Read(inbuf)
 	if err != nil {
 		panic(err)
 	}
