@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -21,6 +22,12 @@ func checksum(b ...uint8) uint8 {
 		c += x
 	}
 	return -c
+}
+
+func binaryWrite(w io.Writer, data interface{}) {
+	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -50,14 +57,16 @@ func main() {
 	foo := new(bytes.Buffer)
 
 	// Write RMCP header
-	binary.Write(foo, binary.LittleEndian, rmcpHeader{
+	rmcphdr := rmcpHeader{
 		Version:            rmcpVersion1,
 		RMCPSequenceNumber: 0xff,
 		Class:              rmcpClassIPMI,
-	})
+	}
 
-	// Write IPMI session header
-	binary.Write(foo, binary.LittleEndian, ipmiSession{})
+	ipmisesshdr := ipmiSession{}
+
+	binaryWrite(foo, rmcphdr)
+	binaryWrite(foo, ipmisesshdr)
 
 	// Construct and write IPMI header
 	ipmihdr := ipmiHeader{
@@ -67,8 +76,9 @@ func main() {
 		RqAddr:     0x81, // Source address
 	}
 
+	// Header checksum
 	ipmihdr.Checksum = checksum(ipmihdr.RsAddr, ipmihdr.NetFnRsLUN)
-	binary.Write(foo, binary.LittleEndian, ipmihdr)
+	binaryWrite(foo, ipmihdr)
 
 	buf := foo.Bytes()
 	buf = append(buf, []byte{
