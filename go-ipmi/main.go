@@ -5,13 +5,23 @@ package main
 // Based on https://www-ssl.intel.com/content/www/us/en/servers/ipmi/ipmi-intelligent-platform-mgt-interface-spec-2nd-gen-v2-0-spec-update.html
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"time"
 )
+
+func checksum(b ...uint8) uint8 {
+	var c uint8
+	for _, x := range b {
+		c += x
+	}
+	return -c
+}
 
 func main() {
 	var host = flag.String("host", "", "Target host and port")
@@ -37,25 +47,36 @@ func main() {
 
 	fmt.Println("Connection established")
 
-	buf := []byte{
-		0x06,                   // Version
-		0x00,                   // Reserved
-		0xff,                   // Sequence
-		0x07,                   // Class, message type
-		0x00,                   // Auth type
-		0x00, 0x00, 0x00, 0x00, // Session sequence number
-		0x00, 0x00, 0x00, 0x00, // Session ID
-		0x09, // Message len
-		0x20, // Target address
-		0x18, // NetFn, target LUN
-		0xc8, // Checksum
-		0x81, // Source address
-		0x00, // Source LUN, sequence number
+	foo := new(bytes.Buffer)
+
+	// Write RMCP header
+	binary.Write(foo, binary.LittleEndian, rmcpHeader{
+		Version:            rmcpVersion1,
+		RMCPSequenceNumber: 0xff,
+		Class:              rmcpClassIPMI,
+	})
+
+	// Write IPMI session header
+	binary.Write(foo, binary.LittleEndian, ipmiSession{})
+
+	// Construct and write IPMI header
+	ipmihdr := ipmiHeader{
+		MsgLen:     0x09, // Message len
+		RsAddr:     0x20, // Target address
+		NetFnRsLUN: 0x18, // NetFn, target LUN
+		RqAddr:     0x81, // Source address
+	}
+
+	ipmihdr.Checksum = checksum(ipmihdr.RsAddr, ipmihdr.NetFnRsLUN)
+	binary.Write(foo, binary.LittleEndian, ipmihdr)
+
+	buf := foo.Bytes()
+	buf = append(buf, []byte{
 		CmdGetChannelAuthCapabilities,
 		0x8e, // IPMI v2.0+ extended data, current channel
 		PrivLevelAdmin,
 		0xb5, // Checksum
-	}
+	}...)
 
 	deadline, _ := ctx.Deadline()
 	if err := conn.SetDeadline(deadline); err != nil {
