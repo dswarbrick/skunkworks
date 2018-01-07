@@ -37,7 +37,7 @@ type message struct {
 
 func newMessageFromBytes(b []byte) (*message, error) {
 	if len(b) < rmcpHeaderSize+ipmiSessionSize+ipmiHeaderSize {
-		return nil, fmt.Errorf("Undersized packet")
+		return nil, ErrShortPacket
 	}
 
 	m := &message{
@@ -65,11 +65,11 @@ func newMessageFromBytes(b []byte) (*message, error) {
 	}
 
 	if m.headerChecksum() != m.Checksum {
-		return nil, fmt.Errorf("Header checksum mismatch")
+		return nil, ErrInvalidPacket
 	}
 
 	if m.MsgLen <= 0 {
-		return nil, fmt.Errorf("Undersized packet")
+		return nil, ErrInvalidPacket
 	}
 
 	m.data = make([]byte, int(m.ipmiHeader.MsgLen)-ipmiHeaderSize)
@@ -83,7 +83,7 @@ func newMessageFromBytes(b []byte) (*message, error) {
 	csum, _ := r.ReadByte()
 
 	if m.payloadChecksum() != csum {
-		return nil, fmt.Errorf("Payload checksum mismatch")
+		return nil, ErrInvalidPacket
 	}
 
 	return m, nil
