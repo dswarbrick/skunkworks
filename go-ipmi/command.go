@@ -2,7 +2,17 @@ package main
 
 // Command Number Assignments (table G-1)
 const (
+	// IPM device "global" commands
+	CmdGetDeviceID = 0x01
+
+	// BMC device and messaging commands
 	CmdGetChannelAuthCapabilities = 0x38
+	CmdSetSessionPrivLevel        = 0x3b
+	CmdCloseSession               = 0x3c
+
+	// Sensor device commands
+	CmdGetDeviceSDRInfo = 0x20
+	CmdGetSensorReading = 0x2d
 )
 
 // Privilege levels
