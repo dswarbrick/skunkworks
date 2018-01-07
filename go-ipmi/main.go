@@ -46,16 +46,5 @@ func main() {
 	fmt.Printf("Connection established: %#v\n", lc)
 
 	lc.getAuthCapabilities()
-
-	n, inbuf := lc.recv()
-	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
-
-	hdr := decodeRMCPHeader(inbuf[:n])
-	fmt.Printf("%#v\n", hdr)
-
-	if hdr.Class != rmcpClassIPMI {
-		fmt.Printf("Unsupported class: %#x\n", hdr.Class)
-	}
-
-	newMessageFromBytes(inbuf[:n])
+	lc.recv()
 }

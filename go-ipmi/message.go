@@ -26,54 +26,67 @@ type ipmiHeader struct {
 	Command    uint8
 }
 
+type message struct {
+	*rmcpHeader
+	*ipmiSession
+	authCode [16]byte
+	*ipmiHeader
+	data []byte
+}
+
 func newMessageFromBytes(b []byte) error {
 	if len(b) < rmcpHeaderSize+ipmiSessionSize+ipmiHeaderSize {
 		return fmt.Errorf("Undersized packet")
 	}
 
-	rmcpHeader := rmcpHeader{}
-	ipmiSession := ipmiSession{}
+	m := message{
+		rmcpHeader:  &rmcpHeader{},
+		ipmiSession: &ipmiSession{},
+		ipmiHeader:  &ipmiHeader{},
+	}
+
 	ipmiHeader := ipmiHeader{}
 
 	r := bytes.NewReader(b)
 
-	if err := binary.Read(r, binary.LittleEndian, &rmcpHeader); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, m.rmcpHeader); err != nil {
 		return err
 	}
 
-	if err := binary.Read(r, binary.LittleEndian, &ipmiSession); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, m.ipmiSession); err != nil {
 		return err
 	}
 
-	if ipmiSession.AuthType != 0 {
+	if m.ipmiSession.AuthType != 0 {
 		return fmt.Errorf("AuthType not supported yet")
 	}
 
-	if err := binary.Read(r, binary.LittleEndian, &ipmiHeader); err != nil {
+	if err := binary.Read(r, binary.LittleEndian, m.ipmiHeader); err != nil {
 		return err
 	}
 
-	fmt.Printf("%#v\n", rmcpHeader)
-	fmt.Printf("%#v\n", ipmiSession)
-	fmt.Printf("%#v\n", ipmiHeader)
+	fmt.Println("Message from bytes")
+	fmt.Printf("%#v\n", m.rmcpHeader)
+	fmt.Printf("%#v\n", m.ipmiSession)
+	fmt.Printf("%#v\n", m.ipmiHeader)
 
-	data := make([]byte, int(ipmiHeader.MsgLen)-ipmiHeaderSize)
-	if _, err := r.Read(data); err != nil {
+	m.data = make([]byte, int(m.ipmiHeader.MsgLen)-ipmiHeaderSize)
+	if _, err := r.Read(m.data); err != nil {
 		return err
 	}
 
-	fmt.Printf("% x\n", data)
+	fmt.Printf("% x\n", m.data)
 
 	// Checksum byte should be the last byte, immediately after the data
 	csum, _ := r.ReadByte()
 	fmt.Printf("csum: %x\n", csum)
 
 	// Calculate payload checksum
-	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(data...)
+	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(m.data...)
 	fmt.Printf("calc csum: %x\n", calcCsum)
 
 	res := AuthCapabilitiesResponse{}
-	r = bytes.NewReader(data)
+	r = bytes.NewReader(m.data)
 	binary.Read(r, binary.LittleEndian, &res)
 
 	fmt.Printf("%#v\n", res)

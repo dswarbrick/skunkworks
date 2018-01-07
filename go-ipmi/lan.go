@@ -105,9 +105,8 @@ func (l *lanConnection) message(req Request) []byte {
 
 	binaryWrite(buf, req.Data)
 
-	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(data.Bytes()...)
-	fmt.Printf("calc csum: %x\n", calcCsum)
-	buf.WriteByte(calcCsum)
+	payloadCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(data.Bytes()...)
+	buf.WriteByte(payloadCsum)
 
 	return buf.Bytes()
 }
@@ -119,7 +118,21 @@ func (l *lanConnection) nextSequence() uint32 {
 	return l.sequence
 }
 
-func (l *lanConnection) recv() (int, []byte) {
+func (l *lanConnection) recv() {
+	n, inbuf := l.recvPacket()
+	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
+
+	hdr := decodeRMCPHeader(inbuf[:n])
+	fmt.Printf("%#v\n", hdr)
+
+	if hdr.Class != rmcpClassIPMI {
+		fmt.Printf("Unsupported class: %#x\n", hdr.Class)
+	}
+
+	newMessageFromBytes(inbuf[:n])
+}
+
+func (l *lanConnection) recvPacket() (int, []byte) {
 	buf := make([]byte, ipmiBufSize)
 	n, err := l.conn.Read(buf)
 	if err != nil {
