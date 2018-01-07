@@ -53,7 +53,7 @@ func (l *lanConnection) close() {
 
 func (l *lanConnection) getAuthCapabilities() {
 	req := Request{
-		NetworkFunctionApp,
+		NetFnApp,
 		CmdGetChannelAuthCapabilities,
 		AuthCapabilitiesRequest{
 			0x8e, // IPMI v2.0+ extended data, current channel

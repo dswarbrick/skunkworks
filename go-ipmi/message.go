@@ -8,7 +8,12 @@ import (
 )
 
 const (
-	NetworkFunctionApp = 0x06
+	// Network function codes per section 5.1
+	NetFnChassis     = 0x00
+	NetFnSensorEvent = 0x04
+	NetFnApp         = 0x06
+	NetFnStorage     = 0x0a
+	NetFnGroupExtn   = 0x2c
 )
 
 type ipmiSession struct {
@@ -19,11 +24,11 @@ type ipmiSession struct {
 
 type ipmiHeader struct {
 	MsgLen     uint8
-	RsAddr     uint8
-	NetFnRsLUN uint8
+	RsAddr     uint8 // Responder slave address
+	NetFnRsLUN uint8 // Network function, responder LUN
 	Checksum   uint8
-	RqAddr     uint8
-	RqSeq      uint8
+	RqAddr     uint8 // Requester address
+	RqSeq      uint8 // Requester sequence number
 	Command    uint8
 }
 

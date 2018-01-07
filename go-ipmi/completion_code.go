@@ -27,5 +27,5 @@ func (c completionCode) Error() string {
 	if s, ok := completionCodes[c]; ok {
 		return s
 	}
-	return fmt.Sprintf("Completion Code: %X", uint8(c))
+	return fmt.Sprintf("Completion code: %X", uint8(c))
 }
