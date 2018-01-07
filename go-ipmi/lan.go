@@ -67,6 +67,22 @@ func (l *lanConnection) getAuthCapabilities() {
 	}
 
 	fmt.Printf("%d bytes written\n", n)
+
+	data := l.recv()
+
+	res := AuthCapabilitiesResponse{}
+	r := bytes.NewReader(data)
+	binary.Read(r, binary.LittleEndian, &res)
+
+	fmt.Printf("%#v\n", res)
+
+	// Check for supported auth type in order of preference
+	for _, t := range []uint8{AuthTypeMD5, AuthTypePassword, AuthTypeNone} {
+		if (res.AuthTypeSupport & (1 << t)) != 0 {
+			fmt.Println(t)
+			break
+		}
+	}
 }
 
 func (l *lanConnection) message(req Request) []byte {
@@ -119,7 +135,7 @@ func (l *lanConnection) nextSequence() uint32 {
 	return l.sequence
 }
 
-func (l *lanConnection) recv() {
+func (l *lanConnection) recv() []byte {
 	n, inbuf := l.recvPacket()
 	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
 
@@ -135,19 +151,7 @@ func (l *lanConnection) recv() {
 		panic(err)
 	}
 
-	res := AuthCapabilitiesResponse{}
-	r := bytes.NewReader(m.data)
-	binary.Read(r, binary.LittleEndian, &res)
-
-	fmt.Printf("%#v\n", res)
-
-	// Check for supported auth type in order of preference
-	for _, t := range []uint8{AuthTypeMD5, AuthTypePassword, AuthTypeNone} {
-		if (res.AuthTypeSupport & (1 << t)) != 0 {
-			fmt.Println(t)
-			break
-		}
-	}
+	return m.data
 }
 
 func (l *lanConnection) recvPacket() (int, []byte) {

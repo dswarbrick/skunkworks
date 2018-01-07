@@ -46,5 +46,4 @@ func main() {
 	fmt.Printf("Connection established: %#v\n", lc)
 
 	lc.getAuthCapabilities()
-	lc.recv()
 }
