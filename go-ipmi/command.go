@@ -15,6 +15,12 @@ const (
 	PrivLevelOEM
 )
 
+type Request struct {
+	NetworkFunction uint8
+	Command         uint8
+	Data            interface{}
+}
+
 // AuthCapabilitiesRequest per section 22.13
 type AuthCapabilitiesRequest struct {
 	ChannelNumber uint8

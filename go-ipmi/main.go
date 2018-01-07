@@ -5,7 +5,6 @@ package main
 // Based on https://www-ssl.intel.com/content/www/us/en/servers/ipmi/ipmi-intelligent-platform-mgt-interface-spec-2nd-gen-v2-0-spec-update.html
 
 import (
-	"bytes"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -46,45 +45,21 @@ func main() {
 
 	fmt.Printf("Connection established: %#v\n", lc)
 
-	buf := new(bytes.Buffer)
-
-	// Write RMCP header
-	rmcpHeader := rmcpHeader{
-		Version:            rmcpVersion1,
-		RMCPSequenceNumber: 0xff,
-		Class:              rmcpClassIPMI,
+	req := Request{
+		NetworkFunctionApp,
+		CmdGetChannelAuthCapabilities,
+		AuthCapabilitiesRequest{
+			0x8e, // IPMI v2.0+ extended data, current channel
+			PrivLevelAdmin,
+		},
 	}
 
-	ipmiSession := ipmiSession{}
-
-	binaryWrite(buf, rmcpHeader)
-	binaryWrite(buf, ipmiSession)
-
-	// Construct and write IPMI header
-	ipmiHeader := ipmiHeader{
-		MsgLen:     0x09, // Message len
-		RsAddr:     0x20, // Target address
-		NetFnRsLUN: 0x18, // NetFn, target LUN
-		RqAddr:     0x81, // Source address
-		Command:    CmdGetChannelAuthCapabilities,
+	n, err := lc.send(req)
+	if err != nil {
+		panic(err)
 	}
 
-	// Header checksum
-	ipmiHeader.Checksum = checksum(ipmiHeader.RsAddr, ipmiHeader.NetFnRsLUN)
-	binaryWrite(buf, ipmiHeader)
-
-	req := AuthCapabilitiesRequest{
-		0x8e, // IPMI v2.0+ extended data, current channel
-		PrivLevelAdmin,
-	}
-
-	binaryWrite(buf, req)
-
-	calcCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command, req.ChannelNumber, req.PrivLevel)
-	fmt.Printf("calc csum: %x\n", calcCsum)
-	buf.WriteByte(calcCsum)
-
-	fmt.Printf("%d bytes written\n", lc.send(buf.Bytes()))
+	fmt.Printf("%d bytes written\n", n)
 
 	n, inbuf := lc.recv()
 	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
