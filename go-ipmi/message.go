@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 const (
@@ -94,4 +95,18 @@ func (m *message) headerChecksum() uint8 {
 
 func (m *message) payloadChecksum() uint8 {
 	return checksum(m.RqAddr, m.RqSeq, m.Command) + checksum(m.data...)
+}
+
+func binaryWrite(w io.Writer, data interface{}) {
+	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
+		panic(err)
+	}
+}
+
+func checksum(b ...uint8) uint8 {
+	var c uint8
+	for _, x := range b {
+		c += x
+	}
+	return -c
 }
