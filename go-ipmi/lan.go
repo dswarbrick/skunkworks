@@ -61,24 +61,17 @@ func (l *lanConnection) getAuthCapabilities() {
 		},
 	}
 
-	n, err := l.send(req)
-	if err != nil {
+	resp := AuthCapabilitiesResponse{}
+
+	if err := l.send(req, &resp); err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%d bytes written\n", n)
-
-	data := l.recv()
-
-	res := AuthCapabilitiesResponse{}
-	r := bytes.NewReader(data)
-	binary.Read(r, binary.LittleEndian, &res)
-
-	fmt.Printf("%#v\n", res)
+	fmt.Printf("%#v\n", resp)
 
 	// Check for supported auth type in order of preference
 	for _, t := range []uint8{AuthTypeMD5, AuthTypePassword, AuthTypeNone} {
-		if (res.AuthTypeSupport & (1 << t)) != 0 {
+		if (resp.AuthTypeSupport & (1 << t)) != 0 {
 			fmt.Println(t)
 			break
 		}
@@ -164,9 +157,21 @@ func (l *lanConnection) recvPacket() (int, []byte) {
 	return n, buf
 }
 
-func (l *lanConnection) send(req Request) (int, error) {
+func (l *lanConnection) send(req Request, resp interface{}) error {
 	buf := l.message(req)
-	return l.sendPacket(buf)
+
+	if _, err := l.sendPacket(buf); err != nil {
+		return err
+	}
+
+	data := l.recv()
+
+	r := bytes.NewReader(data)
+	if err := binary.Read(r, binary.LittleEndian, resp); err != nil {
+		panic(err)
+	}
+
+	return nil
 }
 
 func (l *lanConnection) sendPacket(b []byte) (int, error) {
