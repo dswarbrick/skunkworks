@@ -68,7 +68,7 @@ func newMessageFromBytes(b []byte) (*message, error) {
 	}
 
 	if m.MsgLen <= 0 {
-		return nil, fmt.Errorf("Undersize packet")
+		return nil, fmt.Errorf("Undersized packet")
 	}
 
 	m.data = make([]byte, int(m.ipmiHeader.MsgLen)-ipmiHeaderSize)
