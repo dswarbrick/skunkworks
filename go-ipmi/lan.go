@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"time"
@@ -129,7 +130,24 @@ func (l *lanConnection) recv() {
 		fmt.Printf("Unsupported class: %#x\n", hdr.Class)
 	}
 
-	newMessageFromBytes(inbuf[:n])
+	m, err := newMessageFromBytes(inbuf[:n])
+	if err != nil {
+		panic(err)
+	}
+
+	res := AuthCapabilitiesResponse{}
+	r := bytes.NewReader(m.data)
+	binary.Read(r, binary.LittleEndian, &res)
+
+	fmt.Printf("%#v\n", res)
+
+	// Check for supported auth type in order of preference
+	for _, t := range []uint8{AuthTypeMD5, AuthTypePassword, AuthTypeNone} {
+		if (res.AuthTypeSupport & (1 << t)) != 0 {
+			fmt.Println(t)
+			break
+		}
+	}
 }
 
 func (l *lanConnection) recvPacket() (int, []byte) {
