@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const ipmiBufSize = 1024
+
 type lanConnection struct {
 	conn net.Conn
 }
@@ -38,4 +40,27 @@ func newLanConnection(host string) (lanConnection, error) {
 
 func (l *lanConnection) close() {
 	l.conn.Close()
+}
+
+func (l *lanConnection) getAuthCapabilities() {
+	// TBC
+}
+
+func (l *lanConnection) recv() (int, []byte) {
+	buf := make([]byte, ipmiBufSize)
+	n, err := l.conn.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	return n, buf
+}
+
+func (l *lanConnection) send(b []byte) int {
+	n, err := l.conn.Write(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return n
 }

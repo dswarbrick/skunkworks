@@ -84,19 +84,9 @@ func main() {
 	fmt.Printf("calc csum: %x\n", calcCsum)
 	buf.WriteByte(calcCsum)
 
-	n, err := lc.conn.Write(buf.Bytes())
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("%d bytes written\n", lc.send(buf.Bytes()))
 
-	fmt.Printf("%d bytes written\n", n)
-
-	inbuf := make([]byte, 512)
-	n, err = lc.conn.Read(inbuf)
-	if err != nil {
-		panic(err)
-	}
-
+	n, inbuf := lc.recv()
 	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
 
 	hdr := decodeRMCPHeader(inbuf[:n])
