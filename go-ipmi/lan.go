@@ -15,11 +15,17 @@ import (
 const ipmiBufSize = 1024
 
 type lanConnection struct {
-	conn net.Conn
+	conn      net.Conn // Socket connection
+	priv      uint8    // Privilege level
+	lun       uint8    // LUN
+	sequence  uint32
+	sessionID uint32
 }
 
 func newLanConnection(host string) (lanConnection, error) {
-	l := lanConnection{}
+	l := lanConnection{
+		priv: PrivLevelAdmin, // TODO
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
@@ -45,7 +51,21 @@ func (l *lanConnection) close() {
 }
 
 func (l *lanConnection) getAuthCapabilities() {
-	// TBC
+	req := Request{
+		NetworkFunctionApp,
+		CmdGetChannelAuthCapabilities,
+		AuthCapabilitiesRequest{
+			0x8e, // IPMI v2.0+ extended data, current channel
+			l.priv,
+		},
+	}
+
+	n, err := l.send(req)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%d bytes written\n", n)
 }
 
 func (l *lanConnection) message(req Request) []byte {
@@ -58,17 +78,20 @@ func (l *lanConnection) message(req Request) []byte {
 		Class:              rmcpClassIPMI,
 	}
 
-	ipmiSession := ipmiSession{}
+	ipmiSession := ipmiSession{
+		Sequence:  l.nextSequence(),
+		SessionID: l.sessionID,
+	}
 
 	binaryWrite(buf, rmcpHeader)
 	binaryWrite(buf, ipmiSession)
 
 	// Construct and write IPMI header
 	ipmiHeader := ipmiHeader{
-		MsgLen:     0x09, // Message len
-		RsAddr:     0x20, // Target address
-		NetFnRsLUN: 0x18, // NetFn, target LUN
-		RqAddr:     0x81, // Source address
+		MsgLen:     0x09,                                     // Message len
+		RsAddr:     0x20,                                     // BMC slave address
+		NetFnRsLUN: (req.NetworkFunction << 2) | (l.lun & 3), // NetFn, target LUN
+		RqAddr:     0x81,                                     // Source address
 		Command:    req.Command,
 	}
 
@@ -87,6 +110,13 @@ func (l *lanConnection) message(req Request) []byte {
 	buf.WriteByte(calcCsum)
 
 	return buf.Bytes()
+}
+
+func (l *lanConnection) nextSequence() uint32 {
+	if l.sequence != 0 {
+		l.sequence++
+	}
+	return l.sequence
 }
 
 func (l *lanConnection) recv() (int, []byte) {

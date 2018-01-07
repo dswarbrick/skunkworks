@@ -45,21 +45,7 @@ func main() {
 
 	fmt.Printf("Connection established: %#v\n", lc)
 
-	req := Request{
-		NetworkFunctionApp,
-		CmdGetChannelAuthCapabilities,
-		AuthCapabilitiesRequest{
-			0x8e, // IPMI v2.0+ extended data, current channel
-			PrivLevelAdmin,
-		},
-	}
-
-	n, err := lc.send(req)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%d bytes written\n", n)
+	lc.getAuthCapabilities()
 
 	n, inbuf := lc.recv()
 	fmt.Printf("%d bytes read: % x\n", n, inbuf[:n])
