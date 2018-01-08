@@ -96,26 +96,26 @@ func (l *lanConnection) message(req Request) []byte {
 	binaryWrite(buf, rmcpHeader)
 	binaryWrite(buf, ipmiSession)
 
+	// Marshal request data
+	data := new(bytes.Buffer)
+	binaryWrite(data, req.Data)
+
 	// Construct and write IPMI header
 	ipmiHeader := ipmiHeader{
-		MsgLen:     0x09,                                     // Message len
+		MsgLen:     uint8(ipmiHeaderSize + data.Len()),       // Message len
 		RsAddr:     0x20,                                     // BMC slave address
 		NetFnRsLUN: (req.NetworkFunction << 2) | (l.lun & 3), // NetFn, target LUN
 		RqAddr:     0x81,                                     // Source address
 		Command:    req.Command,
 	}
 
-	// Header checksum
+	// Calculate checksums
 	ipmiHeader.Checksum = checksum(ipmiHeader.RsAddr, ipmiHeader.NetFnRsLUN)
-
-	binaryWrite(buf, ipmiHeader)
-
-	data := new(bytes.Buffer)
-	binaryWrite(data, req.Data)
-
-	binaryWrite(buf, req.Data)
-
 	payloadCsum := checksum(ipmiHeader.RqAddr, ipmiHeader.RqSeq, ipmiHeader.Command) + checksum(data.Bytes()...)
+
+	// Write IPMI header and payload
+	binaryWrite(buf, ipmiHeader)
+	buf.ReadFrom(data)
 	buf.WriteByte(payloadCsum)
 
 	return buf.Bytes()
