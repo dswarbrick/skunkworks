@@ -32,7 +32,7 @@ func umadGetCANames() []string {
 
 func main() {
 
-	// Application will not see the simulated sysfs directory from ibsim unless umad_init() is
+	// umadGetCANames will not see the simulated sysfs directory from ibsim unless umad_init() is
 	// called first.
 	// This seems to leave behind a `sys-$PID` directory after exiting, which does not occur when
 	// running the equivalent from a C program.
