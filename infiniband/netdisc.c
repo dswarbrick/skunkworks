@@ -19,5 +19,7 @@ int main(int argc, char **argv) {
 		printf("%s\n", names[i]);
 	}
 
-	printf("umad_done(): %d\n", umad_done());
+	// umad_done() actually does nothing, and essentially just contains a comment:
+	//   FIXME - verify that all ports are closed
+	umad_done();
 }

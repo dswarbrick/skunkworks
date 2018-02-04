@@ -46,5 +46,7 @@ func main() {
 		fmt.Println(ca)
 	}
 
-	fmt.Printf("umad_done(): %d\n", C.umad_done())
+	// umad_done() actually does nothing, and essentially just contains a comment:
+	//   FIXME - verify that all ports are closed
+	C.umad_done()
 }
