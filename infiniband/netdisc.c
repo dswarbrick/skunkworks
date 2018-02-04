@@ -19,5 +19,5 @@ int main(int argc, char **argv) {
 		printf("%s\n", names[i]);
 	}
 
-	umad_done();
+	printf("umad_done(): %d\n", umad_done());
 }

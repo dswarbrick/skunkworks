@@ -34,8 +34,9 @@ func main() {
 
 	// umadGetCANames will not see the simulated sysfs directory from ibsim unless umad_init() is
 	// called first.
-	// This seems to leave behind a `sys-$PID` directory after exiting, which does not occur when
-	// running the equivalent from a C program.
+	// With verbose logging enabled in ibsim, we see the client attach, but not detach, and the
+	// temporary `sys-$PID` directory is left behind. Clients can be seen still attached in ibsim
+	// via the `attached` command.
 	if C.umad_init() < 0 {
 		fmt.Println("Error initialising umad library")
 		os.Exit(1)
@@ -45,5 +46,5 @@ func main() {
 		fmt.Println(ca)
 	}
 
-	C.umad_done()
+	fmt.Printf("umad_done(): %d\n", C.umad_done())
 }
